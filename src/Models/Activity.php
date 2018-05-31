@@ -9,22 +9,24 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Activity extends Model
 {
-    protected $table;
+    protected $table = 'activity_log';
 
     public $guarded = [];
+
+    /**
+     *  PACKAGE EDITED : changed default timestamps column name and disabled 'updated_at' column 
+     */
+    public $timestamps = [ "created_at" ];
+    const CREATED_AT = 'updated_at';
+
+    public $connection = "shared" ;
+    /* -------------------------------------------------------------------------------------------*/
 
     protected $casts = [
         'properties' => 'collection',
     ];
 
-    public function __construct(array $attributes = [])
-    {
-        $this->table = config('activitylog.table_name');
-
-        parent::__construct($attributes);
-    }
-
-    public function subject(): MorphTo
+    public function reference(): MorphTo
     {
         if (config('activitylog.subject_returns_soft_deleted_models')) {
             return $this->morphTo()->withTrashed();
@@ -33,7 +35,7 @@ class Activity extends Model
         return $this->morphTo();
     }
 
-    public function causer(): MorphTo
+    public function user(): MorphTo
     {
         return $this->morphTo();
     }
@@ -71,32 +73,32 @@ class Activity extends Model
     }
 
     /**
-     * Scope a query to only include activities by a given causer.
+     * Scope a query to only include activities by a given user.
      *
      * @param \Illuminate\Database\Eloquent\Builder $query
-     * @param \Illuminate\Database\Eloquent\Model $causer
+     * @param \Illuminate\Database\Eloquent\Model $user
      *
      * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function scopeCausedBy(Builder $query, Model $causer): Builder
+    public function scopeCausedBy(Builder $query, Model $user): Builder
     {
         return $query
-            ->where('causer_type', $causer->getMorphClass())
-            ->where('causer_id', $causer->getKey());
+            ->where('user_type', $user->getMorphClass())
+            ->where('user_id', $user->getKey());
     }
 
     /**
-     * Scope a query to only include activities for a given subject.
+     * Scope a query to only include activities for a given reference.
      *
      * @param \Illuminate\Database\Eloquent\Builder $query
-     * @param \Illuminate\Database\Eloquent\Model $subject
+     * @param \Illuminate\Database\Eloquent\Model $reference
      *
      * @return \Illuminate\Database\Eloquent\Builder
      */
-    public function scopeForSubject(Builder $query, Model $subject): Builder
+    public function scopeForReference(Builder $query, Model $reference): Builder
     {
         return $query
-            ->where('subject_type', $subject->getMorphClass())
-            ->where('subject_id', $subject->getKey());
+            ->where('reference_type', $reference->getMorphClass())
+            ->where('reference_id', $reference->getKey());
     }
 }

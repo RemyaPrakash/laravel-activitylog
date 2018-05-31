@@ -23,18 +23,24 @@ trait LogsActivity
                     return;
                 }
 
-                $description = $model->getDescriptionForEvent($eventName);
+                // $description = $model->getDescriptionForEvent($eventName);
 
                 $logName = $model->getLogNameToUse($eventName);
 
-                if ($description == '') {
-                    return;
-                }
+                // if ($description == '') {
+                //     return;
+                // }
 
+                $logEventTypeID = $model->getLogEventTypeID($eventName);
+                $description = "" ;
+                $batchID = rand();
+                
                 app(ActivityLogger::class)
                     ->useLog($logName)
                     ->performedOn($model)
                     ->withProperties($model->attributeValuesToBeLogged($eventName))
+                    ->withBatchID($batchID)
+                    ->withEventID($logEventTypeID)
                     ->log($description);
             });
         });
@@ -56,7 +62,7 @@ trait LogsActivity
 
     public function activity(): MorphMany
     {
-        return $this->morphMany(ActivitylogServiceProvider::determineActivityModel(), 'subject');
+        return $this->morphMany(ActivitylogServiceProvider::determineActivityModel(), 'reference');
     }
 
     public function getDescriptionForEvent(string $eventName): string

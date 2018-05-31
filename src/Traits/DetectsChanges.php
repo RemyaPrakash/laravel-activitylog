@@ -53,7 +53,7 @@ trait DetectsChanges
         return static::$logOnlyDirty;
     }
 
-    public function attributeValuesToBeLogged(string $processingEvent): array
+    public function attributeValuesToBeLogged(string $processingEvent=""): array
     {
         if (! count($this->attributesToBeLogged())) {
             return [];
@@ -84,7 +84,7 @@ trait DetectsChanges
                 ->all();
         }
 
-        return $properties;
+        return $properties['attributes'];
     }
 
     public static function logChanges(Model $model): array

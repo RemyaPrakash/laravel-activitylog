@@ -8,6 +8,7 @@ use Spatie\Activitylog\Models\Activity;
 use Illuminate\Support\Traits\Macroable;
 use Illuminate\Contracts\Config\Repository;
 use Spatie\Activitylog\Exceptions\CouldNotLogActivity;
+use App\Models\ActivityLog\Activity as ActivityLog;
 
 class ActivityLogger
 {
@@ -33,6 +34,17 @@ class ActivityLogger
     /** @var string */
     protected $authDriver;
 
+    /** CUSTOM VARS ADDED TO THIS PACKAGE  -----------------------------------------------  */
+    protected $tableName ;
+
+    protected $batchID;
+
+    protected $logEventType;
+
+    protected $manually_added;
+
+    /** ---------------------------------------------------------------------------------------- */
+
     public function __construct(AuthManager $auth, Repository $config)
     {
         $this->auth = $auth;
@@ -50,11 +62,15 @@ class ActivityLogger
         $this->logName = $config['activitylog']['default_log_name'];
 
         $this->logEnabled = $config['activitylog']['enabled'] ?? true;
+
+        $this->manually_added = 0 ; // set 0 as default .
     }
 
     public function performedOn(Model $model)
     {
         $this->performedOn = $model;
+
+        $this->tableName = $this->performedOn->getTable() ;
 
         return $this;
     }
@@ -95,9 +111,32 @@ class ActivityLogger
         return $this;
     }
 
+    /** CUTSOM FUNCTIONS ADDED TO THIS PACKAGE --------------------------------------------*/
+    public function withBatchID($batchID)
+    {
+        $this->batchID = $batchID;
+
+        return $this;
+    }
+
+    public function withEventID($logEventType)
+    {
+        $this->logEventType = $logEventType;
+
+        return $this;
+    }
+
+    public function withManuallyAdded($value)
+    {
+        $this->manually_added = $value;
+
+        return $this;
+    }
+
+    /** -------------------------------------------------------------------------------- */
     /**
      * @param string $key
-     * @param mixed $value
+     * @param mixed  $value
      *
      * @return $this
      */
@@ -125,7 +164,7 @@ class ActivityLogger
      *
      * @return null|mixed
      */
-    public function log(string $description)
+    public function log(string $description = "")
     {
         if (! $this->logEnabled) {
             return;
@@ -134,24 +173,45 @@ class ActivityLogger
         $activity = ActivitylogServiceProvider::getActivityModelInstance();
 
         if ($this->performedOn) {
-            $activity->subject()->associate($this->performedOn);
+            $activity->reference()->associate($this->performedOn);
         }
 
         if ($this->causedBy) {
-            $activity->causer()->associate($this->causedBy);
+            $activity->user()->associate($this->causedBy);
         }
 
-        $activity->properties = $this->properties;
+        // $activity->properties = $this->properties;
 
-        $activity->description = $this->replacePlaceholders($description, $activity);
+        // $activity->description = $this->replacePlaceholders($description, $activity);
 
-        $activity->log_name = $this->logName;
+        // $activity->log_name = $this->logName;
+
+        $activity->batchID = $this->batchID;
+
+        $activity->logEventType = $this->logEventType;
+        
+        $activity->manually_added = $this->manually_added;
 
         $activity->save();
+
+        $this->addToActivityTable($this->properties);
 
         return $activity;
     }
 
+    private function addToActivityTable($activities)
+    {
+        $data['table'] = $this->tableName;
+        $data['batchID'] = $this->batchID;
+        foreach($activities as $key => $activity) {
+            $data['field'] = $key;
+            $data['value'] = $activity;
+            ActivityLog::create($data);
+        }
+
+        
+
+    }
     /**
      * @param \Illuminate\Database\Eloquent\Model|int|string $modelOrId
      *
@@ -185,7 +245,7 @@ class ActivityLogger
 
             $attribute = (string) string($match)->between(':', '.');
 
-            if (! in_array($attribute, ['subject', 'causer', 'properties'])) {
+            if (! in_array($attribute, ['reference', 'user', 'properties'])) {
                 return $match;
             }
 
